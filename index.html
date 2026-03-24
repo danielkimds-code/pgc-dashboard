@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PGC 현황 모니터링</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--bhk:#58a6ff;--bhv:#3fb950;--bhe:#f78166;--bhk-dim:rgba(88,166,255,.12);--bhv-dim:rgba(63,185,80,.12);--bhe-dim:rgba(247,129,102,.12);--accent:#f0883e;--r:10px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:14px;line-height:1.6;}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100;}
+.logo{width:38px;height:38px;flex-shrink:0;background:linear-gradient(135deg,var(--bhk),var(--bhe));border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#fff;}
+.header-text h1{font-size:15px;font-weight:700;}.header-text p{font-size:11px;color:var(--muted);}
+.header-meta{margin-left:auto;display:flex;gap:10px;align-items:center;}
+.chip{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid;}
+.chip-bhk{color:var(--bhk);border-color:rgba(88,166,255,.4);background:var(--bhk-dim);}
+.chip-bhv{color:var(--bhv);border-color:rgba(63,185,80,.4);background:var(--bhv-dim);}
+.chip-bhe{color:var(--bhe);border-color:rgba(247,129,102,.4);background:var(--bhe-dim);}
+.tabs{display:flex;gap:2px;padding:14px 32px 0;background:var(--surface);border-bottom:1px solid var(--border);}
+.tab{padding:8px 22px;font-size:13px;font-weight:500;cursor:pointer;border-radius:8px 8px 0 0;border:1px solid transparent;border-bottom:none;color:var(--muted);transition:all .18s;user-select:none;}
+.tab:hover{color:var(--text);background:var(--surface2);}.tab.active{color:var(--text);background:var(--bg);border-color:var(--border);border-bottom-color:var(--bg);margin-bottom:-1px;}
+.tab-input{background:rgba(240,136,62,.12);border-color:rgba(240,136,62,.3);color:var(--accent);}
+.tab-input.active{background:var(--bg);}
+main{padding:28px 32px;max-width:1380px;margin:0 auto;}
+.panel{display:none;}.panel.active{display:block;}
+.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px;}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;position:relative;overflow:hidden;}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.kpi-card.bhk::before{background:var(--bhk);}.kpi-card.bhv::before{background:var(--bhv);}.kpi-card.bhe::before{background:var(--bhe);}
+.kpi-label{font-size:11px;color:var(--muted);font-weight:500;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;}
+.kpi-site{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-bottom:12px;}
+.kpi-site.bhk{color:var(--bhk);}.kpi-site.bhv{color:var(--bhv);}.kpi-site.bhe{color:var(--bhe);}
+.kpi-row{display:flex;justify-content:space-between;margin-bottom:6px;}
+.kpi-key{color:var(--muted);font-size:12px;}.kpi-val{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;}
+.kpi-delta{font-size:11px;font-family:'JetBrains Mono',monospace;padding:1px 6px;border-radius:4px;margin-left:6px;}
+.up{background:rgba(247,129,102,.15);color:var(--bhe);}.down{background:rgba(63,185,80,.15);color:var(--bhv);}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px 24px;margin-bottom:20px;}
+.chart-title{font-size:13px;font-weight:700;margin-bottom:4px;}.chart-sub{font-size:11px;color:var(--muted);margin-bottom:18px;}
+.chart-wrap{position:relative;height:300px;}
+.tbl-wrap{overflow-x:auto;}.tbl-wrap table{width:100%;border-collapse:collapse;font-size:12px;}
+thead th{background:var(--surface2);padding:10px 14px;text-align:center;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;font-size:11px;}
+thead th:first-child{text-align:left;}
+tbody tr:hover{background:var(--surface2);}
+tbody td{padding:9px 14px;text-align:center;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:12px;}
+tbody td:first-child{font-family:'Noto Sans KR',sans-serif;font-weight:500;text-align:left;color:var(--muted);}
+tbody tr.y26 td{background:rgba(240,136,62,.05);}
+tbody tr.y26 td:first-child{color:var(--accent);font-weight:700;}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;}
+.dot-bhk{background:var(--bhk);}.dot-bhv{background:var(--bhv);}.dot-bhe{background:var(--bhe);}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.note{font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-top:16px;line-height:1.7;}
+.note strong{color:var(--text);}
+
+/* ── 데이터 입력 탭 ── */
+.input-header{background:linear-gradient(135deg,rgba(240,136,62,.15),rgba(88,166,255,.08));border:1px solid rgba(240,136,62,.3);border-radius:var(--r);padding:20px 24px;margin-bottom:24px;}
+.input-header h2{font-size:15px;font-weight:700;color:var(--accent);margin-bottom:6px;}
+.input-header p{font-size:12px;color:var(--muted);line-height:1.7;}
+.input-header code{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);}
+.site-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:16px;overflow:hidden;}
+.site-block-header{padding:14px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);}
+.site-dot{width:10px;height:10px;border-radius:50%;}
+.site-block-header h3{font-size:13px;font-weight:700;}
+.site-block-header span{font-size:11px;color:var(--muted);margin-left:auto;font-family:'JetBrains Mono',monospace;}
+.paste-area-wrap{padding:16px 20px;}
+.paste-label{font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:500;}
+.paste-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.paste-col label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px;}
+.paste-col label strong{color:var(--text);}
+textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;padding:10px 12px;resize:vertical;min-height:60px;outline:none;transition:border-color .15s;}
+textarea:focus{border-color:var(--accent);}
+textarea.ok{border-color:var(--bhv);}
+textarea.err{border-color:var(--bhe);}
+.parse-status{font-size:10px;margin-top:4px;font-family:'JetBrains Mono',monospace;height:14px;}
+.parse-status.ok{color:var(--bhv);}.parse-status.err{color:var(--bhe);}
+.month-row{padding:0 20px 14px;display:flex;align-items:center;gap:10px;}
+.month-row label{font-size:12px;color:var(--muted);white-space:nowrap;}
+.month-input{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;padding:6px 12px;outline:none;width:120px;}
+.month-input:focus{border-color:var(--accent);}
+.price-row{padding:0 20px 16px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.price-col label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px;}
+.price-col label strong{color:var(--text);}
+.price-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;outline:none;transition:border-color .15s;}
+.price-input:focus{border-color:var(--accent);}
+.btn-apply{background:linear-gradient(135deg,var(--accent),#e06830);border:none;color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:700;padding:12px 32px;border-radius:8px;cursor:pointer;transition:opacity .15s;width:100%;margin-top:8px;}
+.btn-apply:hover{opacity:.85;}
+.btn-apply:disabled{opacity:.4;cursor:not-allowed;}
+.apply-msg{text-align:center;font-size:12px;margin-top:10px;height:18px;font-family:'JetBrains Mono',monospace;}
+.apply-msg.ok{color:var(--bhv);}.apply-msg.err{color:var(--bhe);}
+.guide-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin-bottom:20px;}
+.guide-box h4{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px;}
+.guide-steps{list-style:none;counter-reset:step;}
+.guide-steps li{counter-increment:step;padding:5px 0 5px 28px;position:relative;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);}
+.guide-steps li:last-child{border:none;}
+.guide-steps li::before{content:counter(step);position:absolute;left:0;top:5px;width:18px;height:18px;background:rgba(240,136,62,.2);color:var(--accent);border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;}
+.guide-steps li strong{color:var(--text);}
+.guide-steps li code{background:rgba(255,255,255,.06);border-radius:3px;padding:1px 5px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--bhk);}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">PGC</div>
+  <div class="header-text"><h1>PGC 현황 모니터링</h1><p id="hdr-range">25년 1월 — 26년 2월 &nbsp;|&nbsp; 도금 면적 기준 사용량 분석</p></div>
+  <div class="header-meta">
+    <span class="chip chip-bhk">BHK</span><span class="chip chip-bhv">BHV</span><span class="chip chip-bhe">BHE</span>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('overview')">📊 종합 현황</div>
+  <div class="tab" onclick="switchTab('saving')">💴 원가절감 현황</div>
+  <div class="tab" onclick="switchTab('usage')">💧 g/도금면적㎡</div>
+  <div class="tab" onclick="switchTab('price')">💰 PGC 단가</div>
+  <div class="tab" onclick="switchTab('input')">⚖️ 투입량 vs 도금면적</div>
+  <div class="tab" onclick="switchTab('table')">📋 데이터 테이블</div>
+  <div class="tab" onclick="switchTab('saving')">💴 원가절감 현황</div>
+  <div class="tab tab-input" onclick="switchTab('adddata')">➕ 데이터 추가</div>
+</div>
+
+<main>
+<!-- 탭1 종합 -->
+<div id="tab-overview" class="panel active">
+  <div class="kpi-grid">
+    <div class="kpi-card bhk"><div class="kpi-label" id="kpi-label-bhk">Latest</div><div class="kpi-site bhk">BHK</div>
+      <div class="kpi-row"><span class="kpi-key">g/도금㎡</span><span class="kpi-val"><span id="kv-bhk-g">—</span><span id="kv-bhk-gd" class="kpi-delta"></span></span></div>
+      <div class="kpi-row"><span class="kpi-key">투입량</span><span class="kpi-val"><span id="kv-bhk-i">—</span> g</span></div>
+      <div class="kpi-row"><span class="kpi-key">도금 면적</span><span class="kpi-val"><span id="kv-bhk-a">—</span> ㎡</span></div>
+      <div class="kpi-row"><span class="kpi-key">단가(원/100g)</span><span class="kpi-val"><span id="kv-bhk-p">—</span><span id="kv-bhk-pd" class="kpi-delta"></span></span></div></div>
+    <div class="kpi-card bhv"><div class="kpi-label" id="kpi-label-bhv">Latest</div><div class="kpi-site bhv">BHV</div>
+      <div class="kpi-row"><span class="kpi-key">g/도금㎡</span><span class="kpi-val"><span id="kv-bhv-g">—</span><span id="kv-bhv-gd" class="kpi-delta"></span></span></div>
+      <div class="kpi-row"><span class="kpi-key">투입량</span><span class="kpi-val"><span id="kv-bhv-i">—</span> g</span></div>
+      <div class="kpi-row"><span class="kpi-key">도금 면적</span><span class="kpi-val"><span id="kv-bhv-a">—</span> ㎡</span></div>
+      <div class="kpi-row"><span class="kpi-key">단가(원/100g)</span><span class="kpi-val"><span id="kv-bhv-p">—</span><span id="kv-bhv-pd" class="kpi-delta"></span></span></div></div>
+    <div class="kpi-card bhe"><div class="kpi-label" id="kpi-label-bhe">Latest</div><div class="kpi-site bhe">BHE</div>
+      <div class="kpi-row"><span class="kpi-key">g/도금㎡</span><span class="kpi-val"><span id="kv-bhe-g">—</span><span id="kv-bhe-gd" class="kpi-delta"></span></span></div>
+      <div class="kpi-row"><span class="kpi-key">투입량</span><span class="kpi-val"><span id="kv-bhe-i">—</span> g</span></div>
+      <div class="kpi-row"><span class="kpi-key">도금 면적</span><span class="kpi-val"><span id="kv-bhe-a">—</span> ㎡</span></div>
+      <div class="kpi-row"><span class="kpi-key">단가(원/100g)</span><span class="kpi-val"><span id="kv-bhe-p">—</span><span id="kv-bhe-pd" class="kpi-delta"></span></span></div></div>
+  </div>
+  <div class="chart-card"><div class="chart-title">g / 도금면적㎡ — 전체 추이 (사이트 비교)</div>
+    <div class="chart-sub">음영 구간은 26년</div>
+    <div class="chart-wrap"><canvas id="c-overview"></canvas></div></div>
+  <div class="note"><strong>※ 산출 기준</strong> &nbsp;g/도금면적㎡ = PGC 투입량(g) ÷ 총 도금 면적(㎡) &nbsp;|&nbsp; 단가 단위: 원/100g &nbsp;|&nbsp; BHE 25년 12월: 639 CNY × 207.98원 = 132,899원 &nbsp;|&nbsp; BHV 25년 12월: 2,531,362 VND × 0.060원 = 151,882원</div>
+</div>
+
+<!-- 탭2 사용량 -->
+<div id="tab-usage" class="panel">
+  <div class="chart-card"><div class="chart-title">g / 도금면적㎡ 월별 추이</div>
+    <div class="chart-sub">사이트별 PGC 사용 효율 비교 — 낮을수록 효율 우수</div>
+    <div class="chart-wrap" style="height:360px"><canvas id="c-usage"></canvas></div></div>
+  <div class="grid2">
+    <div class="chart-card"><div class="chart-title"><span class="dot dot-bhk"></span>BHK</div><div class="chart-sub">g/도금㎡ 월별</div><div class="chart-wrap" style="height:220px"><canvas id="c-bhk-g"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title"><span class="dot dot-bhv"></span>BHV</div><div class="chart-sub">g/도금㎡ 월별</div><div class="chart-wrap" style="height:220px"><canvas id="c-bhv-g"></canvas></div></div>
+  </div>
+  <div class="chart-card" style="margin-top:0"><div class="chart-title"><span class="dot dot-bhe"></span>BHE</div><div class="chart-sub">g/도금㎡ 월별</div><div class="chart-wrap" style="height:220px"><canvas id="c-bhe-g"></canvas></div></div>
+</div>
+
+<!-- 탭3 단가 -->
+<div id="tab-price" class="panel">
+  <div class="chart-card"><div class="chart-title">PGC 단가 변동 추이 — 3사이트 비교 (원/100g)</div>
+    <div class="chart-sub">BHV·BHE 25년 12월은 실제 환율 적용 환산값</div>
+    <div class="chart-wrap" style="height:380px"><canvas id="c-price"></canvas></div></div>
+  <div class="grid2">
+    <div class="chart-card"><div class="chart-title"><span class="dot dot-bhk"></span>BHK 단가</div><div class="chart-sub">원/100g</div><div class="chart-wrap" style="height:220px"><canvas id="c-bhk-p"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title"><span class="dot dot-bhv"></span>BHV 단가</div><div class="chart-sub">원/100g</div><div class="chart-wrap" style="height:220px"><canvas id="c-bhv-p"></canvas></div></div>
+  </div>
+  <div class="chart-card" style="margin-top:0"><div class="chart-title"><span class="dot dot-bhe"></span>BHE 단가</div><div class="chart-sub">원/100g · 25년 12월: 639 CNY × 207.98원</div><div class="chart-wrap" style="height:220px"><canvas id="c-bhe-p"></canvas></div></div>
+  <div class="note">
+    <strong>BHK</strong> 25년 1월(88,583원) → 최신 &nbsp;<strong style="color:#f78166" id="bhk-chg">—</strong> &nbsp;|&nbsp;
+    <strong>BHV</strong> 25년 1월(84,437원) → 최신 &nbsp;<strong style="color:#f78166" id="bhv-chg">—</strong> &nbsp;|&nbsp;
+    <strong>BHE</strong> 25년 1월(71,787원) → 최신 &nbsp;<strong style="color:#f78166" id="bhe-chg">—</strong>
+  </div>
+</div>
+
+<!-- 탭4 투입량 -->
+<div id="tab-input" class="panel">
+  <div class="chart-card"><div class="chart-title"><span class="dot dot-bhk"></span>BHK — 투입량(g) vs 도금면적(㎡)</div><div class="chart-sub">막대: 투입량 · 선: 도금면적</div><div class="chart-wrap" style="height:280px"><canvas id="c-bhk-bar"></canvas></div></div>
+  <div class="chart-card"><div class="chart-title"><span class="dot dot-bhv"></span>BHV — 투입량(g) vs 도금면적(㎡)</div><div class="chart-sub">막대: 투입량 · 선: 도금면적</div><div class="chart-wrap" style="height:280px"><canvas id="c-bhv-bar"></canvas></div></div>
+  <div class="chart-card"><div class="chart-title"><span class="dot dot-bhe"></span>BHE — 투입량(g) vs 도금면적(㎡)</div><div class="chart-sub">막대: 투입량 · 선: 도금면적</div><div class="chart-wrap" style="height:280px"><canvas id="c-bhe-bar"></canvas></div></div>
+</div>
+
+<!-- 탭5 테이블 -->
+<div id="tab-table" class="panel">
+  <div class="chart-card" style="padding:0;overflow:hidden;">
+    <div style="padding:18px 20px 14px;border-bottom:1px solid var(--border);">
+      <div class="chart-title">전체 데이터 테이블</div>
+      <div class="chart-sub" style="margin-bottom:0">황색 행 = 26년 · 단가 단위: 원/100g</div>
+    </div>
+    <div class="tbl-wrap" style="border:none;border-radius:0;padding:0 0 4px;">
+      <table><thead><tr>
+        <th>월</th>
+        <th><span class="dot dot-bhk"></span>BHK g/㎡</th><th><span class="dot dot-bhv"></span>BHV g/㎡</th><th><span class="dot dot-bhe"></span>BHE g/㎡</th>
+        <th>BHK 투입(g)</th><th>BHV 투입(g)</th><th>BHE 투입(g)</th>
+        <th>BHK 면적(㎡)</th><th>BHV 면적(㎡)</th><th>BHE 면적(㎡)</th>
+        <th>BHK 단가</th><th>BHV 단가</th><th>BHE 단가</th>
+      </tr></thead><tbody id="tbl-body"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- 탭6 원가절감 현황 -->
+<div id="tab-saving" class="panel">
+
+  <!-- 기준값 바 -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 24px;margin-bottom:20px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;">
+    <span style="font-size:12px;font-weight:700;color:var(--muted);">26년 기준 g/㎡</span>
+    <label style="display:flex;align-items:center;gap:8px;">
+      <span style="color:var(--bhk);font-weight:700;font-size:13px;">BHK</span>
+      <input type="number" id="base-bhk" value="2.11" step="0.01" style="width:70px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--bhk);font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;padding:4px 8px;outline:none;" oninput="renderSaving()">
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;">
+      <span style="color:var(--bhv);font-weight:700;font-size:13px;">BHV</span>
+      <input type="number" id="base-bhv" value="2.74" step="0.01" style="width:70px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--bhv);font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;padding:4px 8px;outline:none;" oninput="renderSaving()">
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;">
+      <span style="color:var(--bhe);font-weight:700;font-size:13px;">BHE</span>
+      <input type="number" id="base-bhe" value="2.50" step="0.01" style="width:70px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--bhe);font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;padding:4px 8px;outline:none;" oninput="renderSaving()">
+    </label>
+    <span style="margin-left:auto;font-size:11px;color:var(--muted);">절감액 = (기준 − 실적) × 도금면적(㎡) × 단가(원/g)</span>
+  </div>
+
+  <!-- KPI 3카드 -->
+  <div class="kpi-grid" style="margin-bottom:20px;">
+    <div class="kpi-card bhk">
+      <div class="kpi-label">26년 누계 (사용량+회수량)</div><div class="kpi-site bhk">BHK</div>
+      <div class="kpi-row"><span class="kpi-key">누계 절감액</span><span class="kpi-val" id="sv-bhk-total" style="font-size:15px">—</span></div>
+      <div class="kpi-row"><span class="kpi-key">사용량 절감</span><span class="kpi-val" id="sv-bhk-use">—</span></div>
+      <div class="kpi-row"><span class="kpi-key">회수량 절감</span><span class="kpi-val" id="sv-bhk-rec">—</span></div>
+      <div class="kpi-row"><span class="kpi-key">최근 g/㎡</span><span class="kpi-val" id="sv-bhk-g">—</span></div>
+    </div>
+    <div class="kpi-card bhv">
+      <div class="kpi-label">26년 누계 (사용량+회수량)</div><div class="kpi-site bhv">BHV</div>
+      <div class="kpi-row"><span class="kpi-key">누계 절감액</span><span class="kpi-val" id="sv-bhv-total" style="font-size:15px">—</span></div>
+      <div class="kpi-row"><span class="kpi-key">사용량 절감</span><span class="kpi-val" id="sv-bhv-use">—</span></div>
+      <div class="kpi-row"><span class="kpi-key">회수량 절감</span><span class="kpi-val" id="sv-bhv-rec">—</span></div>
+      <div class="kpi-row"><span class="kpi-key">최근 g/㎡</span><span class="kpi-val" id="sv-bhv-g">—</span></div>
+    </div>
+    <div class="kpi-card bhe">
+      <div class="kpi-label">26년 누계 (사용량+회수량)</div><div class="kpi-site bhe">BHE</div>
+      <div class="kpi-row"><span class="kpi-key">누계 절감액</span><span class="kpi-val" id="sv-bhe-total" style="font-size:15px">—</span></div>
+      <div class="kpi-row"><span class="kpi-key">사용량 절감</span><span class="kpi-val" id="sv-bhe-use">—</span></div>
+      <div class="kpi-row"><span class="kpi-key">회수량 절감</span><span class="kpi-val" id="sv-bhe-rec">—</span></div>
+      <div class="kpi-row"><span class="kpi-key">최근 g/㎡</span><span class="kpi-val" id="sv-bhe-g">—</span></div>
+    </div>
+  </div>
+
+  <!-- 전체 합계 배너 -->
+  <div style="background:linear-gradient(135deg,rgba(88,166,255,.08),rgba(63,185,80,.06),rgba(247,129,102,.06));border:1px solid var(--border);border-radius:var(--r);padding:16px 24px;margin-bottom:20px;display:flex;align-items:center;gap:32px;flex-wrap:wrap;">
+    <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;">26년 전체 누계 절감액</div>
+    <div style="font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;" id="sv-grand-total">—</div></div>
+    <div style="height:40px;width:1px;background:var(--border);"></div>
+    <div><div style="font-size:11px;color:var(--muted);margin-bottom:2px;">BHK</div><div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;" id="sv-sum-bhk">—</div></div>
+    <div><div style="font-size:11px;color:var(--muted);margin-bottom:2px;">BHV</div><div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;" id="sv-sum-bhv">—</div></div>
+    <div><div style="font-size:11px;color:var(--muted);margin-bottom:2px;">BHE</div><div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;" id="sv-sum-bhe">—</div></div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">월별 원가절감 금액 — 사용량 + 회수량 (26년)</div>
+    <div class="chart-sub">■ 사이트 고유색(파랑·초록·주황) = 사용량 절감 &nbsp;·&nbsp; ■ <span style="color:#ffd54f;font-weight:700;">노랑</span> = 회수량 절감 &nbsp;·&nbsp; 음수 = 기준 초과</div>
+    <div class="chart-wrap" style="height:320px"><canvas id="c-sv-bar"></canvas></div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">26년 누계 절감액 추이</div>
+    <div class="chart-sub">사이트별 누적 합산 절감액 (사용량 + 회수량)</div>
+    <div class="chart-wrap" style="height:260px"><canvas id="c-sv-cum"></canvas></div>
+  </div>
+
+  <div class="chart-card" style="padding:0;overflow:hidden;">
+    <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);">
+      <div class="chart-title">원가절감 상세 테이블 (26년)</div>
+      <div class="chart-sub" style="margin-bottom:0">사용량·회수량 항목별 분리 · 단위: 원</div>
+    </div>
+    <div class="tbl-wrap" style="border:none;border-radius:0;">
+      <table>
+        <thead>
+          <tr>
+            <th rowspan="2">월</th>
+            <th colspan="2" style="color:var(--bhk);border-bottom:1px solid var(--border);">BHK</th>
+            <th colspan="2" style="color:var(--bhv);border-bottom:1px solid var(--border);">BHV</th>
+            <th colspan="2" style="color:var(--bhe);border-bottom:1px solid var(--border);">BHE</th>
+            <th rowspan="2">월 합계</th>
+          </tr>
+          <tr>
+            <th>사용량 절감</th><th>회수량 절감</th>
+            <th>사용량 절감</th><th>회수량 절감</th>
+            <th>사용량 절감</th><th>회수량 절감</th>
+          </tr>
+        </thead>
+        <tbody id="sv-tbl-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>※ 사용량 절감</strong> = (기준 g/㎡ − 실적 g/㎡) × 도금면적(㎡) × 단가(원/g) &nbsp;|&nbsp;
+    <strong>회수량 절감</strong> = 파일 내 회수 실적 기반 (원가절감 산출식 시트) &nbsp;|&nbsp;
+    단가 원/100g → 원/g 자동 변환 &nbsp;|&nbsp; 음수 = 기준 초과
+  </div>
+</div>
+
+<!-- 탭7 데이터 추가 -->
+<div id="tab-adddata" class="panel">
+
+  <div class="guide-box">
+    <h4>📋 엑셀에서 붙여넣기 사용 방법</h4>
+    <ol class="guide-steps">
+      <li><strong>월 입력</strong> — 추가할 월을 입력하세요 (예: <code>26년 3월</code>)</li>
+      <li><strong>엑셀에서 해당 열 선택</strong> — 공정운영 시트에서 BHK·BHV·BHE 각각의 <code>총 도금 면적</code>, <code>PGC 투입량</code> 셀을 복사</li>
+      <li><strong>아래 입력란에 붙여넣기</strong> — 숫자 하나씩 해당 칸에 붙여넣기 (Ctrl+V)</li>
+      <li><strong>단가 입력</strong> — 각 사이트 원화 단가(원/100g) 입력</li>
+      <li><strong>차트에 반영</strong> 버튼 클릭 → 모든 차트·테이블 자동 업데이트</li>
+    </ol>
+  </div>
+
+  <!-- 월 입력 -->
+  <div class="site-block">
+    <div class="site-block-header">
+      <div class="site-dot" style="background:var(--accent)"></div>
+      <h3>추가할 월</h3>
+    </div>
+    <div class="month-row">
+      <label>월 이름</label>
+      <input class="month-input" id="new-month" type="text" placeholder="예: 26년 3월" />
+      <span style="font-size:11px;color:var(--muted);margin-left:8px;">형식: YY년 M월</span>
+    </div>
+  </div>
+
+  <!-- BHK -->
+  <div class="site-block">
+    <div class="site-block-header">
+      <div class="site-dot" style="background:var(--bhk)"></div>
+      <h3 style="color:var(--bhk)">BHK</h3>
+      <span>엑셀에서 숫자 1개 복사 후 붙여넣기</span>
+    </div>
+    <div class="paste-area-wrap">
+      <div class="paste-grid">
+        <div class="paste-col">
+          <label><strong>총 도금 면적 (㎡)</strong></label>
+          <input type="number" class="price-input" id="bhk-area" placeholder="예: 1927.05" step="0.01">
+        </div>
+        <div class="paste-col">
+          <label><strong>PGC 투입량 (g)</strong></label>
+          <input type="number" class="price-input" id="bhk-inp" placeholder="예: 3700" step="1">
+        </div>
+        <div class="paste-col">
+          <label><strong>단가 (원/100g)</strong></label>
+          <input type="number" class="price-input" id="bhk-price" placeholder="예: 157320" step="1">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BHV -->
+  <div class="site-block">
+    <div class="site-block-header">
+      <div class="site-dot" style="background:var(--bhv)"></div>
+      <h3 style="color:var(--bhv)">BHV</h3>
+      <span>엑셀에서 숫자 1개 복사 후 붙여넣기</span>
+    </div>
+    <div class="paste-area-wrap">
+      <div class="paste-grid">
+        <div class="paste-col">
+          <label><strong>총 도금 면적 (㎡)</strong></label>
+          <input type="number" class="price-input" id="bhv-area" placeholder="예: 4016.00" step="0.01">
+        </div>
+        <div class="paste-col">
+          <label><strong>PGC 투입량 (g)</strong></label>
+          <input type="number" class="price-input" id="bhv-inp" placeholder="예: 10500" step="1">
+        </div>
+        <div class="paste-col">
+          <label><strong>단가 (원/100g)</strong></label>
+          <input type="number" class="price-input" id="bhv-price" placeholder="예: 161229" step="1">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BHE -->
+  <div class="site-block">
+    <div class="site-block-header">
+      <div class="site-dot" style="background:var(--bhe)"></div>
+      <h3 style="color:var(--bhe)">BHE</h3>
+      <span>엑셀에서 숫자 1개 복사 후 붙여넣기</span>
+    </div>
+    <div class="paste-area-wrap">
+      <div class="paste-grid">
+        <div class="paste-col">
+          <label><strong>총 도금 면적 (㎡)</strong></label>
+          <input type="number" class="price-input" id="bhe-area" placeholder="예: 2148.54" step="0.01">
+        </div>
+        <div class="paste-col">
+          <label><strong>PGC 투입량 (g)</strong></label>
+          <input type="number" class="price-input" id="bhe-inp" placeholder="예: 5100" step="1">
+        </div>
+        <div class="paste-col">
+          <label><strong>단가 (원/100g)</strong></label>
+          <input type="number" class="price-input" id="bhe-price" placeholder="예: 152070" step="1">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-apply" id="btn-apply" onclick="applyNewData()">✅ 차트에 반영하기</button>
+  <div class="apply-msg" id="apply-msg"></div>
+
+  <!-- 추가된 목록 -->
+  <div class="chart-card" style="margin-top:24px">
+    <div class="chart-title">추가된 데이터 목록</div>
+    <div class="chart-sub">이 세션에서 추가한 데이터 · 브라우저 닫으면 초기화됩니다</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>월</th><th>BHK g/㎡</th><th>BHV g/㎡</th><th>BHE g/㎡</th><th>BHK 단가</th><th>BHV 단가</th><th>BHE 단가</th><th></th></tr></thead>
+      <tbody id="added-list"><tr><td colspan="8" style="color:var(--muted);text-align:center;padding:20px;">아직 추가된 데이터가 없습니다</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+</main>
+
+<script>
+// ══════════════════════════════════════
+// 기초 데이터
+// ══════════════════════════════════════
+const BASE = {
+  M:  ['25년 1월','25년 2월','25년 3월','25년 4월','25년 5월','25년 6월','25년 7월','25년 8월','25년 9월','25년 10월','25년 11월','25년 12월','26년 1월','26년 2월'],
+  BA: [1185.90,1076.83,1081.15,1135.40,1270.04,2005.43,1679.21,1658.84,1732.38,2068.43,1926.49,1258.47,1927.05,1335.85],
+  BI: [4000,2800,4000,3100,3300,3600,3700,2800,4100,3600,4098.3,2800,3700,2800],
+  VA: [3181.68,2548.45,4077.83,5278.72,5203.58,5008.14,4730.29,5204.47,6738.34,6727.64,6492.82,5914.07,4016.00,2385.65],
+  VI: [20900,23500,23900,14600,17500,16200,10700,12800,15800,15400,13200,11900,10500,8300],
+  EA: [3574.27,3160.49,3655.00,3393.55,2867.68,2500.22,2036.41,2041.56,2962.33,2654.09,2298.14,2949.13,2148.54,2172.46],
+  EI: [8600,7900,8600,8900,7200,6000,6400,4300,7700,7600,5600,7600,5100,4200],
+  BP: [88583,95640,96883,104467,104404,103717,102588,103333,106614,113750,136500,144617,157320,168044],
+  VP: [84437,90332,93318,103045,104117,105864,105478,110130,116391,137501,135303,151882,161229,165514],
+  EP: [71787,77472,78473,85325,89470,89700,87827,87263,92037,126342,140756,132899,152070,151098],
+};
+
+// 런타임 데이터 (BASE + 추가분)
+let D = JSON.parse(JSON.stringify(BASE));
+
+function recalcG(){
+  D.BG = D.BI.map((v,i)=>+(v/D.BA[i]).toFixed(4));
+  D.VG = D.VI.map((v,i)=>+(v/D.VA[i]).toFixed(4));
+  D.EG = D.EI.map((v,i)=>+(v/D.EA[i]).toFixed(4));
+}
+recalcG();
+
+// ══════════════════════════════════════
+// Chart.js 설정
+// ══════════════════════════════════════
+Chart.defaults.color='#8b949e';
+Chart.defaults.font.family="'Noto Sans KR',sans-serif";
+Chart.defaults.font.size=11;
+const GD={color:'rgba(48,54,61,.7)'};
+const TIP={backgroundColor:'#21262d',borderColor:'#30363d',borderWidth:1,titleColor:'#e6edf3',bodyColor:'#8b949e',padding:10,
+  callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y!=null?c.parsed.y.toLocaleString():'N/A'}`}};
+
+function getP26Plugin(){
+  return{id:'p26',beforeDraw(chart){
+    const{ctx,chartArea:ca,scales:{x}}=chart;
+    if(!ca||!x)return;
+    // 26년 시작 인덱스 찾기
+    const idx=D.M.findIndex(m=>m.startsWith('26년'));
+    if(idx<0)return;
+    const x0=x.getPixelForValue(idx);
+    ctx.save();ctx.fillStyle='rgba(240,136,62,.06)';
+    ctx.fillRect(x0,ca.top,ca.right-x0,ca.height);ctx.restore();
+  }};
+}
+
+function lds(label,data,color,dash=[]){
+  return{label,data,borderColor:color,backgroundColor:color+'22',
+    pointBackgroundColor:color,pointRadius:4,pointHoverRadius:6,
+    borderWidth:2,tension:.35,borderDash:dash,spanGaps:true};
+}
+
+// 차트 인스턴스 저장
+const CHARTS = {};
+
+function buildChart(id,type,datasets,yLabel,height,extraOpts={}){
+  if(CHARTS[id]){CHARTS[id].destroy();}
+  const opts={responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#8b949e',boxWidth:12,padding:16}},tooltip:TIP,...(extraOpts.plugins||{})},
+    scales:{x:{grid:GD,ticks:{maxRotation:45}},y:{grid:GD,title:{display:!!yLabel,text:yLabel,color:'#8b949e'}},...(extraOpts.scales||{})}};
+  CHARTS[id]=new Chart(document.getElementById(id),{type,data:{labels:D.M,datasets},options:opts,plugins:[getP26Plugin()]});
+  return CHARTS[id];
+}
+
+function buildSingle(id,data,color,yLabel){
+  if(CHARTS[id])CHARTS[id].destroy();
+  CHARTS[id]=new Chart(document.getElementById(id),{
+    type:'line',data:{labels:D.M,datasets:[{data,borderColor:color,backgroundColor:color+'18',
+      pointBackgroundColor:color,pointRadius:4,pointHoverRadius:6,borderWidth:2,tension:.35,fill:true}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:TIP},
+      scales:{x:{grid:GD,ticks:{maxRotation:45}},y:{grid:GD,title:{display:true,text:yLabel,color:'#8b949e'}}}},
+    plugins:[getP26Plugin()]});
+}
+
+function buildBarLine(id,inp,area,color){
+  if(CHARTS[id])CHARTS[id].destroy();
+  CHARTS[id]=new Chart(document.getElementById(id),{type:'bar',
+    data:{labels:D.M,datasets:[
+      {type:'bar',label:'투입량 (g)',data:inp,backgroundColor:color+'55',borderColor:color,borderWidth:1,borderRadius:3,yAxisID:'y'},
+      {type:'line',label:'도금 면적 (㎡)',data:area,borderColor:'#f0883e',backgroundColor:'transparent',
+       pointBackgroundColor:'#f0883e',pointRadius:4,pointHoverRadius:6,borderWidth:2,tension:.35,yAxisID:'y1'}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#8b949e',boxWidth:12,padding:16}},tooltip:TIP},
+      scales:{x:{grid:GD,ticks:{maxRotation:45}},
+              y:{grid:GD,position:'left',title:{display:true,text:'투입량 (g)',color:'#8b949e'}},
+              y1:{grid:{display:false},position:'right',title:{display:true,text:'도금면적 (㎡)',color:'#f0883e'}}}},
+    plugins:[getP26Plugin()]});
+}
+
+// ══════════════════════════════════════
+// 전체 렌더링
+// ══════════════════════════════════════
+function renderAll(){
+  recalcG();
+  // 차트
+  buildChart('c-overview','line',[lds('BHK',D.BG,'#58a6ff'),lds('BHV',D.VG,'#3fb950'),lds('BHE',D.EG,'#f78166')],'g/㎡');
+  buildChart('c-usage','line',[lds('BHK',D.BG,'#58a6ff'),lds('BHV',D.VG,'#3fb950'),lds('BHE',D.EG,'#f78166')],'g/㎡');
+  buildSingle('c-bhk-g',D.BG,'#58a6ff','g/㎡');
+  buildSingle('c-bhv-g',D.VG,'#3fb950','g/㎡');
+  buildSingle('c-bhe-g',D.EG,'#f78166','g/㎡');
+  buildChart('c-price','line',[lds('BHK',D.BP,'#58a6ff'),lds('BHV',D.VP,'#3fb950'),lds('BHE',D.EP,'#f78166')],'원/100g');
+  buildSingle('c-bhk-p',D.BP,'#58a6ff','원/100g');
+  buildSingle('c-bhv-p',D.VP,'#3fb950','원/100g');
+  buildSingle('c-bhe-p',D.EP,'#f78166','원/100g');
+  buildBarLine('c-bhk-bar',D.BI,D.BA,'#58a6ff');
+  buildBarLine('c-bhv-bar',D.VI,D.VA,'#3fb950');
+  buildBarLine('c-bhe-bar',D.EI,D.EA,'#f78166');
+
+  // KPI
+  const n=D.M.length-1,p=n-1;
+  const fi=v=>v!=null?Math.round(v).toLocaleString('ko-KR'):'—';
+  const ff=(v,d=4)=>v!=null?v.toLocaleString('ko-KR',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
+  function setKpi(site,g,gp,i,a,pr,prp){
+    const gd=g>gp?'up':'down', pd=pr>prp?'up':'down';
+    document.getElementById(`kv-${site}-g`).textContent=ff(g);
+    document.getElementById(`kv-${site}-gd`).textContent=g>gp?'▲':'▼';
+    document.getElementById(`kv-${site}-gd`).className='kpi-delta '+(g>gp?'up':'down');
+    document.getElementById(`kv-${site}-i`).textContent=fi(D[site==='bhk'?'BI':site==='bhv'?'VI':'EI'][n]);
+    document.getElementById(`kv-${site}-a`).textContent=ff(D[site==='bhk'?'BA':site==='bhv'?'VA':'EA'][n],2);
+    document.getElementById(`kv-${site}-p`).textContent=fi(pr);
+    document.getElementById(`kv-${site}-pd`).textContent=pr>prp?'▲':'▼';
+    document.getElementById(`kv-${site}-pd`).className='kpi-delta '+(pr>prp?'up':'down');
+    document.getElementById(`kpi-label-${site}`).textContent='Latest · '+D.M[n];
+  }
+  setKpi('bhk',D.BG[n],D.BG[p],n,D.BA[n],D.BP[n],D.BP[p]);
+  setKpi('bhv',D.VG[n],D.VG[p],n,D.VA[n],D.VP[n],D.VP[p]);
+  setKpi('bhe',D.EG[n],D.EG[p],n,D.EA[n],D.EP[n],D.EP[p]);
+
+  // 단가 변화율
+  const pct=(a,b)=>((b-a)/a*100).toFixed(1)+'%';
+  document.getElementById('bhk-chg').textContent=fi(D.BP[n])+'원 ('+pct(D.BP[0],D.BP[n])+')';
+  document.getElementById('bhv-chg').textContent=fi(D.VP[n])+'원 ('+pct(D.VP[0],D.VP[n])+')';
+  document.getElementById('bhe-chg').textContent=fi(D.EP[n])+'원 ('+pct(D.EP[0],D.EP[n])+')';
+
+  // 헤더 날짜
+  document.getElementById('hdr-range').textContent=D.M[0]+' — '+D.M[n]+' | 도금 면적 기준 사용량 분석';
+
+  // 테이블
+  const tb=document.getElementById('tbl-body');
+  tb.innerHTML='';
+  D.M.forEach((m,i)=>{
+    const tr=document.createElement('tr');
+    if(m.startsWith('26년'))tr.classList.add('y26');
+    const f=(v,d=2)=>v!=null?v.toLocaleString('ko-KR',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
+    const fii=v=>v!=null?Math.round(v).toLocaleString('ko-KR'):'—';
+    tr.innerHTML=`<td>${m}</td><td>${f(D.BG[i],4)}</td><td>${f(D.VG[i],4)}</td><td>${f(D.EG[i],4)}</td><td>${fii(D.BI[i])}</td><td>${fii(D.VI[i])}</td><td>${fii(D.EI[i])}</td><td>${f(D.BA[i],2)}</td><td>${f(D.VA[i],2)}</td><td>${f(D.EP[i],2)}</td><td>${fii(D.BP[i])}</td><td>${fii(D.VP[i])}</td><td>${fii(D.EP[i])}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+// ══════════════════════════════════════
+// 데이터 추가
+// ══════════════════════════════════════
+const addedRows=[];
+
+function applyNewData(){
+  const month = document.getElementById('new-month').value.trim();
+  const bhkA  = parseFloat(document.getElementById('bhk-area').value);
+  const bhkI  = parseFloat(document.getElementById('bhk-inp').value);
+  const bhkP  = parseFloat(document.getElementById('bhk-price').value);
+  const bhvA  = parseFloat(document.getElementById('bhv-area').value);
+  const bhvI  = parseFloat(document.getElementById('bhv-inp').value);
+  const bhvP  = parseFloat(document.getElementById('bhv-price').value);
+  const bheA  = parseFloat(document.getElementById('bhe-area').value);
+  const bheI  = parseFloat(document.getElementById('bhe-inp').value);
+  const bheP  = parseFloat(document.getElementById('bhe-price').value);
+  const msg   = document.getElementById('apply-msg');
+
+  if(!month){msg.textContent='❌ 월 이름을 입력해주세요';msg.className='apply-msg err';return;}
+  if([bhkA,bhkI,bhkP,bhvA,bhvI,bhvP,bheA,bheI,bheP].some(isNaN)){msg.textContent='❌ 모든 항목을 입력해주세요';msg.className='apply-msg err';return;}
+  if(D.M.includes(month)){msg.textContent='❌ 이미 존재하는 월입니다: '+month;msg.className='apply-msg err';return;}
+
+  // 데이터 추가
+  D.M.push(month); D.BA.push(bhkA); D.BI.push(bhkI); D.BP.push(bhkP);
+  D.VA.push(bhvA); D.VI.push(bhvI); D.VP.push(bhvP);
+  D.EA.push(bheA); D.EI.push(bheI); D.EP.push(bheP);
+  recalcG();
+
+  // 추가 목록 업데이트
+  addedRows.push({month,bhkA,bhkI,bhkP,bhvA,bhvI,bhvP,bheA,bheI,bheP});
+  renderAddedList();
+
+  // 전체 차트 재렌더링
+  renderAll();
+
+  // 폼 초기화
+  ['new-month','bhk-area','bhk-inp','bhk-price','bhv-area','bhv-inp','bhv-price','bhe-area','bhe-inp','bhe-price']
+    .forEach(id=>{const el=document.getElementById(id);el.value='';});
+
+  msg.textContent='✅ '+month+' 데이터가 반영되었습니다!';
+  msg.className='apply-msg ok';
+  setTimeout(()=>{msg.textContent='';},3000);
+}
+
+function removeRow(idx){
+  const row=addedRows[idx];
+  const di=D.M.indexOf(row.month);
+  if(di>=0){['M','BA','BI','BP','VA','VI','VP','EA','EI','EP'].forEach(k=>D[k].splice(di,1));}
+  addedRows.splice(idx,1);
+  recalcG(); renderAll(); renderAddedList();
+}
+
+function renderAddedList(){
+  const tb=document.getElementById('added-list');
+  if(addedRows.length===0){tb.innerHTML='<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:20px;">아직 추가된 데이터가 없습니다</td></tr>';return;}
+  const fi=v=>Math.round(v).toLocaleString('ko-KR');
+  const ff=(v,d=4)=>v.toLocaleString('ko-KR',{minimumFractionDigits:d,maximumFractionDigits:d});
+  tb.innerHTML=addedRows.map((r,i)=>`
+    <tr>
+      <td style="color:var(--accent);font-weight:700;font-family:'Noto Sans KR',sans-serif">${r.month}</td>
+      <td>${ff(r.bhkI/r.bhkA)}</td><td>${ff(r.bhvI/r.bhvA)}</td><td>${ff(r.bheI/r.bheA)}</td>
+      <td>${fi(r.bhkP)}</td><td>${fi(r.bhvP)}</td><td>${fi(r.bheP)}</td>
+      <td><button onclick="removeRow(${i})" style="background:rgba(247,129,102,.15);border:1px solid rgba(247,129,102,.3);color:var(--bhe);border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;">삭제</button></td>
+    </tr>`).join('');
+}
+
+// 탭 전환
+function switchTab(n){
+  const ns=['overview','saving','usage','price','input','table','adddata'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',ns[i]===n));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+n).classList.add('active');
+  if(n==='saving') renderSaving();
+}
+
+// ══════════════════════════════════════
+// 원가절감 렌더링 (파일 실적 데이터 기반)
+// ══════════════════════════════════════
+
+// 파일에서 추출한 월별 실적 데이터 (원가절감 산출식 시트)
+// 구조: [26년1월, 26년2월, ...]
+const SV_DATA = {
+  // BHK 사용량 절감 실적
+  bhk_use: [57590478, 3133566],
+  // BHK 회수량 절감 실적
+  bhk_rec: [14634466, 0],
+  // BHV 사용량 절감 실적
+  bhv_use: [81233619, -291851631],
+  // BHV 회수량 절감 실적
+  bhv_rec: [0, 223061149],
+  // BHE 사용량 절감 실적
+  bhe_use: [41265654, 186021806],
+  // BHE 회수량 절감 실적
+  bhe_rec: [0, 0],
+  // 계획 누계 (연간)
+  plan: {
+    bhk_use: 18276457, bhk_rec: 20135387,
+    bhv_use: 2386198959, bhv_rec: 137655000,
+    bhe_use: 76065698,  bhe_rec: 153387000,
+  }
+};
+
+function renderSaving(){
+  const baseBHK = parseFloat(document.getElementById('base-bhk').value)||2.11;
+  const baseBHV = parseFloat(document.getElementById('base-bhv').value)||2.74;
+  const baseBHE = parseFloat(document.getElementById('base-bhe').value)||2.50;
+
+  // 26년 인덱스
+  const idx26 = D.M.map((m,i)=>m.startsWith('26년')?i:-1).filter(i=>i>=0);
+  if(idx26.length===0) return;
+  const months26 = idx26.map(i=>D.M[i]);
+  const n = months26.length;
+
+  // 동적 추가 데이터 처리 (추가 월은 사용량만 계산, 회수량=0)
+  const bhkUse = idx26.map((di,i) =>
+    i < SV_DATA.bhk_use.length ? SV_DATA.bhk_use[i]
+    : (baseBHK - D.BG[di]) * D.BA[di] * (D.BP[di]/100));
+  const bhkRec = idx26.map((di,i) => i < SV_DATA.bhk_rec.length ? SV_DATA.bhk_rec[i] : 0);
+  const bhvUse = idx26.map((di,i) =>
+    i < SV_DATA.bhv_use.length ? SV_DATA.bhv_use[i]
+    : (baseBHV - D.VG[di]) * D.VA[di] * (D.VP[di]/100));
+  const bhvRec = idx26.map((di,i) => i < SV_DATA.bhv_rec.length ? SV_DATA.bhv_rec[i] : 0);
+  const bheUse = idx26.map((di,i) =>
+    i < SV_DATA.bhe_use.length ? SV_DATA.bhe_use[i]
+    : (baseBHE - D.EG[di]) * D.EA[di] * (D.EP[di]/100));
+  const bheRec = idx26.map((di,i) => i < SV_DATA.bhe_rec.length ? SV_DATA.bhe_rec[i] : 0);
+
+  const bhkTot = idx26.map((_,i) => bhkUse[i] + bhkRec[i]);
+  const bhvTot = idx26.map((_,i) => bhvUse[i] + bhvRec[i]);
+  const bheTot = idx26.map((_,i) => bheUse[i] + bheRec[i]);
+
+  const cumSum = arr => arr.reduce((acc,v,i)=>[...acc,(acc[i-1]||0)+v],[]);
+  const bhkCum = cumSum(bhkTot);
+  const bhvCum = cumSum(bhvTot);
+  const bheCum = cumSum(bheTot);
+
+  const fi  = v => Math.round(v).toLocaleString('ko-KR');
+  const won = v => {
+    const a=Math.abs(v);
+    const s=a>=1e8?(a/1e8).toFixed(1)+'억':a>=1e4?(a/1e4).toFixed(0)+'만':fi(a);
+    return (v<0?'▼ -':'▲ ')+s+'원';
+  };
+  const wonPlain = v => {
+    const a=Math.abs(v);
+    const s=a>=1e8?(a/1e8).toFixed(1)+'억':a>=1e4?(a/1e4).toFixed(0)+'만':fi(a);
+    return (v<0?'-':'')+s+'원';
+  };
+
+  // ── KPI 카드 ──
+  const last = n-1;
+  function setKpi(site, useArr, recArr, totArr, cumArr, gArr, idxArr){
+    const total = cumArr[last];
+    const useSum = useArr.reduce((a,b)=>a+b,0);
+    const recSum = recArr.reduce((a,b)=>a+b,0);
+    const lastG  = gArr[idxArr[last]];
+    document.getElementById(`sv-${site}-total`).textContent = wonPlain(total);
+    document.getElementById(`sv-${site}-total`).style.color = total>=0?'var(--bhv)':'var(--bhe)';
+    document.getElementById(`sv-${site}-use`).textContent   = wonPlain(useSum);
+    document.getElementById(`sv-${site}-use`).style.color   = useSum>=0?'var(--bhv)':'var(--bhe)';
+    document.getElementById(`sv-${site}-rec`).textContent   = wonPlain(recSum);
+    document.getElementById(`sv-${site}-rec`).style.color   = recSum>=0?'var(--bhv)':'var(--bhe)';
+    document.getElementById(`sv-${site}-g`).textContent     = lastG.toFixed(4)+' g/㎡';
+  }
+  setKpi('bhk', bhkUse, bhkRec, bhkTot, bhkCum, D.BG, idx26);
+  setKpi('bhv', bhvUse, bhvRec, bhvTot, bhvCum, D.VG, idx26);
+  setKpi('bhe', bheUse, bheRec, bheTot, bheCum, D.EG, idx26);
+
+  // ── 전체 합계 배너 ──
+  const grandBHK = bhkCum[last], grandBHV = bhvCum[last], grandBHE = bheCum[last];
+  const grand = grandBHK + grandBHV + grandBHE;
+  const gc = v => v>=0?'var(--bhv)':'var(--bhe)';
+  document.getElementById('sv-grand-total').textContent = wonPlain(grand);
+  document.getElementById('sv-grand-total').style.color = gc(grand);
+  document.getElementById('sv-sum-bhk').textContent = wonPlain(grandBHK);
+  document.getElementById('sv-sum-bhk').style.color = gc(grandBHK);
+  document.getElementById('sv-sum-bhv').textContent = wonPlain(grandBHV);
+  document.getElementById('sv-sum-bhv').style.color = gc(grandBHV);
+  document.getElementById('sv-sum-bhe').textContent = wonPlain(grandBHE);
+  document.getElementById('sv-sum-bhe').style.color = gc(grandBHE);
+
+  // ── 막대 차트 — 사용량/회수량 색 완전 분리 ──
+  // 사용량: 사이트 고유색 (파랑/초록/주황)
+  // 회수량: 황금/민트/분홍 — 카테고리가 바로 구분되도록
+  if(CHARTS['c-sv-bar']) CHARTS['c-sv-bar'].destroy();
+  CHARTS['c-sv-bar'] = new Chart(document.getElementById('c-sv-bar'),{
+    type:'bar',
+    data:{labels:months26, datasets:[
+      // 사용량 — 사이트 고유색, 실선 테두리
+      {label:'BHK 사용량',data:bhkUse,backgroundColor:'rgba(88,166,255,.85)',borderColor:'#58a6ff',borderWidth:2,borderRadius:4,stack:'bhk'},
+      {label:'BHV 사용량',data:bhvUse,backgroundColor:'rgba(63,185,80,.85)',borderColor:'#3fb950',borderWidth:2,borderRadius:4,stack:'bhv'},
+      {label:'BHE 사용량',data:bheUse,backgroundColor:'rgba(247,129,102,.85)',borderColor:'#f78166',borderWidth:2,borderRadius:4,stack:'bhe'},
+      // 회수량 — 노랑 계열 단일 색상, 점선 테두리로 차별화
+      {label:'BHK 회수량',data:bhkRec,backgroundColor:'rgba(255,213,79,.8)',borderColor:'#ffd54f',borderWidth:2,borderRadius:4,stack:'bhk',borderDash:[4,2]},
+      {label:'BHV 회수량',data:bhvRec,backgroundColor:'rgba(255,213,79,.8)',borderColor:'#ffd54f',borderWidth:2,borderRadius:4,stack:'bhv',borderDash:[4,2]},
+      {label:'BHE 회수량',data:bheRec,backgroundColor:'rgba(255,213,79,.8)',borderColor:'#ffd54f',borderWidth:2,borderRadius:4,stack:'bhe',borderDash:[4,2]},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{
+          labels:{
+            color:'#8b949e',boxWidth:12,padding:14,font:{size:11},
+            filter:(item)=>{
+              // 회수량은 BHK만 범례에 표시 (중복 제거)
+              if(item.text.includes('회수량') && !item.text.includes('BHK')) return false;
+              if(item.text==='BHK 회수량') { item.text='회수량 (공통)'; }
+              return true;
+            }
+          }
+        },
+        tooltip:{...TIP,callbacks:{
+          label:c=>` ${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString()}원`,
+          afterBody: lines => lines.length ? ['──────────','■ 사이트색 = 사용량   ■ 노랑 = 회수량'] : []
+        }}
+      },
+      scales:{
+        x:{grid:GD,ticks:{maxRotation:0}},
+        y:{grid:GD,title:{display:true,text:'절감액 (원)',color:'#8b949e'},
+          ticks:{callback:v=>{const a=Math.abs(v);return (v<0?'-':'')+(a>=1e8?(a/1e8).toFixed(1)+'억':a>=1e4?(a/1e4).toFixed(0)+'만':v);}}}
+      }
+    }
+  });
+
+  // ── 누계 꺾은선 ──
+  if(CHARTS['c-sv-cum']) CHARTS['c-sv-cum'].destroy();
+  CHARTS['c-sv-cum'] = new Chart(document.getElementById('c-sv-cum'),{
+    type:'line',
+    data:{labels:months26, datasets:[
+      {label:'BHK',data:bhkCum,borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,.08)',pointBackgroundColor:'#58a6ff',pointRadius:5,borderWidth:2,tension:.3,fill:true},
+      {label:'BHV',data:bhvCum,borderColor:'#3fb950',backgroundColor:'rgba(63,185,80,.08)',pointBackgroundColor:'#3fb950',pointRadius:5,borderWidth:2,tension:.3,fill:true},
+      {label:'BHE',data:bheCum,borderColor:'#f78166',backgroundColor:'rgba(247,129,102,.08)',pointBackgroundColor:'#f78166',pointRadius:5,borderWidth:2,tension:.3,fill:true},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#8b949e',boxWidth:12,padding:16}},
+               tooltip:{...TIP,callbacks:{label:c=>` ${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString()}원`}}},
+      scales:{x:{grid:GD},y:{grid:GD,title:{display:true,text:'누계 절감액 (원)',color:'#8b949e'},
+        ticks:{callback:v=>{const a=Math.abs(v);return (v<0?'-':'')+(a>=1e8?(a/1e8).toFixed(1)+'억':a>=1e4?(a/1e4).toFixed(0)+'만':v);}}}}}
+  });
+
+  // ── 상세 테이블 ──
+  const tb = document.getElementById('sv-tbl-body');
+  tb.innerHTML = '';
+  months26.forEach((m,i)=>{
+    const rowTotal = bhkTot[i]+bhvTot[i]+bheTot[i];
+    const cs = v=>`style="font-weight:600;${v>=0?'color:var(--bhv)':'color:var(--bhe)'}"`;
+    tb.innerHTML += `<tr class="y26">
+      <td style="color:var(--accent);font-weight:700;font-family:'Noto Sans KR',sans-serif">${m}</td>
+      <td ${cs(bhkUse[i])}>${fi(Math.round(bhkUse[i]))}</td>
+      <td ${cs(bhkRec[i])}>${fi(Math.round(bhkRec[i]))}</td>
+      <td ${cs(bhvUse[i])}>${fi(Math.round(bhvUse[i]))}</td>
+      <td ${cs(bhvRec[i])}>${fi(Math.round(bhvRec[i]))}</td>
+      <td ${cs(bheUse[i])}>${fi(Math.round(bheUse[i]))}</td>
+      <td ${cs(bheRec[i])}>${fi(Math.round(bheRec[i]))}</td>
+      <td style="font-weight:700;${rowTotal>=0?'color:var(--bhv)':'color:var(--bhe)'}">${fi(Math.round(rowTotal))}</td>
+    </tr>`;
+  });
+  // 합계 행
+  const sums = [bhkUse,bhkRec,bhvUse,bhvRec,bheUse,bheRec].map(a=>a.reduce((x,y)=>x+y,0));
+  const grandRow = sums.reduce((a,b)=>a+b,0);
+  const cs2 = v=>`style="font-weight:700;background:var(--surface2);${v>=0?'color:var(--bhv)':'color:var(--bhe)'}"`;
+  tb.innerHTML += `<tr>
+    <td style="font-weight:700;background:var(--surface2);color:var(--text);font-family:'Noto Sans KR',sans-serif">합계</td>
+    ${sums.map(v=>`<td ${cs2(v)}>${fi(Math.round(v))}</td>`).join('')}
+    <td ${cs2(grandRow)}>${fi(Math.round(grandRow))}</td>
+  </tr>`;
+}
+
+// Enter 키로 반영
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.getElementById('tab-adddata').classList.contains('active'))applyNewData();
+});
+
+// ══════════════════════════════════════
+// 코멘트 저장 / 불러오기
+// ══════════════════════════════════════
+function saveComments(){
+  const now = new Date().toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const data = {
+    bhk: document.getElementById('comment-bhk').value,
+    bhv: document.getElementById('comment-bhv').value,
+    bhe: document.getElementById('comment-bhe').value,
+    saved: now
+  };
+  try{ localStorage.setItem('pgc_comments', JSON.stringify(data)); }catch(e){}
+  // 저장 시간 표시
+  ['bhk','bhv','bhe'].forEach(s=>{
+    const el=document.getElementById(s+'-comment-date');
+    if(el) el.textContent='수정: '+now;
+  });
+  const msg=document.getElementById('comment-saved');
+  msg.style.opacity='1';
+  setTimeout(()=>msg.style.opacity='0', 2000);
+}
+
+function loadComments(){
+  try{
+    const raw=localStorage.getItem('pgc_comments');
+    if(!raw) return;
+    const data=JSON.parse(raw);
+    if(data.bhk) document.getElementById('comment-bhk').value=data.bhk;
+    if(data.bhv) document.getElementById('comment-bhv').value=data.bhv;
+    if(data.bhe) document.getElementById('comment-bhe').value=data.bhe;
+    if(data.saved){
+      ['bhk','bhv','bhe'].forEach(s=>{
+        const el=document.getElementById(s+'-comment-date');
+        if(el) el.textContent='수정: '+data.saved;
+      });
+    }
+  }catch(e){}
+}
+
+let _unsaved=false;
+function markUnsaved(){ _unsaved=true; }
+
+// 페이지 떠날 때 미저장 경고
+window.addEventListener('beforeunload', e=>{
+  if(_unsaved){ e.preventDefault(); e.returnValue=''; }
+});
+
+// 초기 렌더링
+renderAll();
+loadComments();
+</script>
+</body>
+</html>
